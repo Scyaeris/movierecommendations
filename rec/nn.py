@@ -1,135 +1,81 @@
 
-import pandas as pd
 import torch
 import torch.nn as nn
-import seaborn as sns
-import matplotlib.pyplot as plt
+import torch.nn.functional as F
+import numpy as np
+import pandas as pd
 
-#import the ratings and movies data set
-ratings = pd.read_csv('ratings.csv', encoding = 'utf-8')
-movies = pd.read_csv('movies.csv', encoding = 'utf-8')
+# load csv files
+movies_csv = pd.read_csv('movies/movies.csv')
+ratings_csv = pd.read_csv('movies/ratings.csv')
 
-#join ratings and movies data set
-data = pd.merge(movies, ratings, on='movieId')
+# create list of unique movies
+unique_movies = movies_csv['movieId'].unique()
 
-#visualizing the ratings
-sns.set_style('ticks')
-sns.catplot(x='rating', data=data, kind='count', aspect=2.5)
-plt.show()
+# create a user-movie matrix
+user_movie_matrix = np.zeros((ratings_csv['userId'].max()+1, len(unique_movies)))
 
-#Split data into training, validation and test set
-from sklearn.model_selection import train_test_split
-training_data, test_data = train_test_split(data, test_size=0.2)
-training_data, validation_data = train_test_split(training_data, test_size=0.2)
+# fill matrix with rating values
+for row in range(58098):
+    user_movie_matrix[row[1]-1, row[2]-1] = row[3]
 
-#create the dataloaders
-from torch.utils.data import DataLoader, TensorDataset
+# create train and test sets
+train_set = user_movie_matrix[:int(0.8*len(user_movie_matrix))]
+test_set = user_movie_matrix[int(0.8*len(user_movie_matrix)):]
 
-#create Tensor datasets from Partioned data
-
-train_tensor_ds = TensorDataset(torch.FloatTensor(training_data.values), torch.LongTensor(training_data.values))
-valid_tensor_ds = TensorDataset(torch.FloatTensor(validation_data.values), torch.LongTensor(validation_data.values))
-test_tensor_ds = TensorDataset(torch.FloatTensor(test_data.values), torch.LongTensor(test_data.values))
-
-#create data loaders from Tensor datasets
-
-train_loader = DataLoader(dataset=train_tensor_ds, batch_size=32, shuffle=True)
-validation_loader = DataLoader(dataset=valid_tensor_ds, batch_size=32, shuffle=True)
-test_loader = DataLoader(dataset=test_tensor_ds, batch_size=32, shuffle=True)
-
-#Define a Convolutional Neural Network
-
-class ConvNet(nn.Module):
+# define the model
+class RecommenderNet(nn.Module):
     def __init__(self):
-        super(ConvNet, self).__init__()
+        super(RecommenderNet, self).__init__()
+        self.fc1 = nn.Linear(len(unique_movies), 20)
+        self.fc2 = nn.Linear(20, 10)
+        self.fc3 = nn.Linear(10, len(unique_movies))
 
-        #Define 2D Convolution Layer
-        self.conv_layer = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=(3,3), padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2,2))
-        #Fully Connected Layer
-        self.fc_layer = nn.Sequential(
-            nn.Linear(20*20*32, 128),
-            nn.ReLU(),
-            nn.Linear(128, 1),
-            nn.Sigmoid()
-            )
-
-    #Define from_input_to_hidden
     def forward(self, x):
-        x = self.conv_layer(x)
-        x = x.view(-1, 20*20*32)
-        x = self.fc_layer(x)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
         return x
 
-
-# Instantiate the model
-model = ConvNet()
-# Define loss and optimizer
-criterion = nn.BCELoss()
+# create model and optimizer
+model = RecommenderNet()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-#Train the Model
+# train the model
+for epoch in range(200):
+    # convert numpy arrays to torch tensors
+    inputs = torch.from_numpy(train_set).float()
+    targets = torch.from_numpy(train_set).float()
 
-n_epochs = 10
+    # forward pass
+    outputs = model(inputs)
+    loss = torch.nn.MSELoss()(outputs, targets)
 
-for epoch in range(1, n_epochs+1):
-    train_losses = []
-    valid_losses = []
-    # Train the model
-    for batch, (inputs, labels) in enumerate(train_loader, 1):
-        # Clear the gradients
-        optimizer.zero_grad()
-        # Forward pass
-        outputs = model.forward(inputs)
-        # Calculate Loss
-        loss = criterion(outputs, labels)
-        # Backward pass
-        loss.backward()
-        # Update weights
-        optimizer.step()
-        # Store the loss
-        train_losses.append(loss.item())
-        # Validate Model
-    with torch.no_grad():
-        valid_loss = 0.0
-        for inputs, labels in validation_loader:
-            outputs = model.forward(inputs)
-            loss = criterion(outputs, labels)
-            valid_loss += loss.item()
-        valid_loss /= len(validation_loader)
-        valid_losses.append(valid_loss)
-    # Print training losses
-    print(f'Epoch: {epoch} \tTraining Loss: {np.mean(train_losses):.5f} \tValidation Loss: {np.mean(valid_losses):.5f}')
+    # backward pass and optimize
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
 
-#Test the Model
+    print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, 200, loss.item()))
 
-test_losses = []
-
-#Test the model
+# evaluate the model
 with torch.no_grad():
-    test_loss = 0.0
-    for inputs, labels in test_loader:
-        outputs = model.forward(inputs)
-        loss = criterion(outputs, labels)
-        test_loss += loss.item()
-    test_loss /= len(test_loader)
-    test_losses.append(test_loss)
+    inputs = torch.from_numpy(test_set).float()
+    targets = torch.from_numpy(test_set).float()
+    outputs = model(inputs)
+    loss = torch.nn.MSELoss()(outputs, targets)
+    print('Test Loss: {:.4f}'.format(loss.item()))
 
-print(f'Test Loss: {np.mean(test_losses):.5f}')
+# make predictions
+predictions = outputs.data.numpy()
 
-# Make Predictions
+# create list of top 10 movie recommendations for each user
+top_10_recommendations = []
 
-# Make Predictions on the test set
-with torch.no_grad():
-    preds = []
+for user in range(predictions.shape[0]):
+    user_recommendations = predictions[user,:]
+    top_10_indices = user_recommendations.argsort()[-10:][::-1]
+    top_10_movies = unique_movies[top_10_indices]
+    top_10_recommendations.append(top_10_movies)
 
-# Get the predicted values
-    for batch, (inputs, labels) in enumerate(test_loader, 1):
-        pred = model.forward(inputs)
-        preds.append(pred)
-
-# Flatten the list of predictions
-preds = [pred.data.numpy()[0] for pred in preds]
-true_labels = [label.data.numpy()[0] for label in test_loader.dataset.tensors[1]]
+print(top_10_recommendations)
