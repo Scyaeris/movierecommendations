@@ -48,10 +48,12 @@
       <!-- Sidebar Starts -->
       <div class="sidebar">
         <div class="sidebar__categories">
+          <a href = "/nn" style = "text-decoration: none">
           <div class="sidebar__category">
             <i class="material-icons">home</i>
             <span>Home</span>
           </div>
+          </a>
           <div class="sidebar__category">
             <i class="material-icons">local_fire_department</i>
             <span>Trending</span>
@@ -90,32 +92,32 @@
 
       <!-- Videos Section -->
       <div class="videos">
-      	<!-- {% if result %}
+      	{% if result %}
       		<h1>Recommended:</h1>
-      	{% endif %} -->
+      	{% endif %}
 
         <div class="videos__container">
           <!-- Single Video starts -->
 	        {% if result %}
-				{% for index in range(12) %}
-					<div class="video">
-			            <div class="video__thumbnail">
-			              <img src="{{images[index]}}" alt="THUMBNAIL" />
-			            </div>
-			            <div class="video__details">
-			              <div class="author">
-			                <img src="../static/img/cds.png" alt="CDS LOGO" />
-			              </div>
-			              <div class="title">
-			                <h3>
-			                  {{result[index]}}
-			                </h3>
-			                <a>Cornell Data Science</a>
-			                <span>{{random[index]}}K Views • {{random[index]}} Months Ago</span>
-			              </div>
-			            </div>
-			          </div>
-				{% endfor %}
+    				{% for index in range(12) %}
+    					<div class="video">
+    			            <div class="video__thumbnail">
+    			              <img src="{{images[index]}}" alt="An error has occured. Index Code: {{index}}" />
+    			            </div>
+    			            <div class="video__details">
+    			              <div class="author">
+    			                <img src="../static/img/cds.png" alt="CDS LOGO" />
+    			              </div>
+    			              <div class="title">
+    			                <h3>
+    			                  {{result[index]}}
+    			                </h3>
+    			                <a>Cornell Data Science</a>
+    			                <span>{{random[index] * 2}}K Views • {{random[index]}} Months Ago</span>
+    			              </div>
+    			            </div>
+    			          </div>
+    				{% endfor %}
 			{% endif %}
 			{% if not result %}
 		        <center><img class = "rotate" src = "../static/img/cds.png"/>

@@ -72,23 +72,27 @@ def predictNN():
 
     image_urls = []
     randInt = []
+
     for item in result:
         item_parse = item.replace(" ", '')
+        item_parse = item_parse.encode()
+        input_parsed = str(item_parse).lstrip('b')
         conn = http.client.HTTPSConnection("bing-image-search1.p.rapidapi.com")
         headers = {
             'X-RapidAPI-Key': "7e0ff16003msh9fd9042dd24b37ep13cf04jsned3e016768fa",
             'X-RapidAPI-Host': "bing-image-search1.p.rapidapi.com"
         }
-        conn.request("GET", "/images/search?q=" + item_parse + "landscape%20imdb%20cover&count=1", headers=headers)
+        conn.request("GET", "/images/search?q=" + input_parsed + "%20landscape%20imdb%20cover&count=1", headers=headers)
+        
         res = conn.getresponse()
         data = res.read().decode("utf-8")
         start = data.find("thumbnailUrl") + 16
         stop = data.find('pid=Api"') + 7
         url = data[start:stop]
-        print(len(image_urls))
 
-        randInt.append(random.randint(1,9))
+        randInt.append(random.randint(2,9))
         image_urls.append(url)
+
     return render_template('nn.html', result = result, images = image_urls, random = randInt)
 
 #Enable debug mode for development purposes
